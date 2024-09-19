@@ -18,8 +18,17 @@ io.on("connection", (socket)=>{
     console.log(`User connected: ${socket.id}`)
 
     socket.on("send_message", (data)=>{
-        socket.broadcast.emit("recieved_message",data)
-        console.log(data)
+        if(data.room == ""){
+            socket.broadcast.emit("recieved_message",data.message)
+        }
+        else{
+            socket.to(data.room).emit("recieved_message",data.message)
+        }
+        console.log(data.message)
+        console.log(data.room)
+    })
+    socket.on("join_room", room =>{
+        socket.join(room)
     })
 })
 
