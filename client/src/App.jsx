@@ -1,41 +1,79 @@
-import { useState, useEffect } from "react";
-import "./App.css";
-import  io  from "socket.io-client";
-const socket = io.connect("http://localhost:3000")
+import React, { useState, useEffect } from "react";
+import io from "socket.io-client";
+import '../App.css'
+
+const socket = io.connect("http://localhost:3005");
 
 function App() {
-  const [message, setMessage] = useState("");
-  const [messageRecieved, setMessageRecieved] = useState("");
-  const [room, setRoom] = useState("")
-  
+  const [userInput, setUserInput] = useState("");
+  const [result, setResult] = useState("");
+  const [connectedSockets, setConnectedSockets] = useState([]); 
+  const [customMessages, setCustomMessages] = useState({}); 
+  const [receivedMessage, setReceivedMessage] = useState(""); 
+  const [user, setUser] = useState([socket.id])
+  const email = localStorage.getItem("email");
 
-  useEffect(()=>{
-    socket.on("recieved_message", (data)=>{
-      setMessageRecieved(data)
-      console.log(data)
-    })
-  },[socket])
+  const handleInputChange = (event) => {
+    setUserInput(event.target.value);
+  };
 
-  const sendMessage = ()=>{
-    socket.emit('send_message', {message, room})
-    // socket.emit('send_message', {message: "You have been added to an event as a participant."})
-    console.log('socketing')
-    setMessage("")
-  }
+  const handleCustomMessageChange = (socketId, event) => {
+    setCustomMessages((prevMessages) => ({ ...prevMessages, [socketId]: event.target.value }));
+  };
 
-  const joinRoom = () =>{
-    socket.emit("join_room", room)
-  }
+  const handleButtonClick = () => {
+    socket.emit("get_string_length", userInput);
+  };
+
+  const handleSendMessage = (socketId, message) => {
+    socket.emit("send_message", socketId, message);
+  };
+
+  useEffect(() => {
+    socket.on("string_length", (length) => {
+      setResult(`The length of the string is: ${length}`);
+    });
+
+    socket.on("update_connected_sockets", (users) => {
+      setConnectedSockets(users);
+    });
+
+    socket.on("message", (message, senderSocketId) => {
+      if (senderSocketId !== socket.id) {
+        setReceivedMessage(message);
+      }
+    });
+
+    socket.on("broadcast_message", (message, senderSocketId) => {
+      if (senderSocketId !== socket.id) {
+        setReceivedMessage(message); 
+      }
+    });
+  }, [socket]);
 
   return (
-    <>
-      <h1>{message}</h1>
-        <input type="text" onChange={(event)=>setMessage(event.target.value)} placeholder="text" />
-        <button type="submit" onClick={sendMessage}>message</button>
-        <input type="text" onChange={(event)=>setRoom(event.target.value)} placeholder="text" />
-        <button type="submit" onClick={joinRoom}>room</button>
-      <h2>Message: {messageRecieved}</h2>
-    </>
+    <div className="App">
+      <h3>{email}:- {socket.id}</h3>
+      <input type="text" value={userInput} onChange={handleInputChange} />
+      <button onClick={handleButtonClick}>Get String Length</button>
+      <p>{result}</p>
+      <h2>Connected Sockets (except current one):</h2>
+      <ul className="socketList">
+        {connectedSockets.map((socketId, index) => (
+          <li key={index}>
+            {socket.id == socketId ? email : socketId}
+            <input
+              type="text"
+              value={customMessages[socketId] || ""} 
+              onChange={(event) => handleCustomMessageChange(socketId, event)}
+              placeholder="Enter custom message"
+            />
+            <button onClick={() => handleSendMessage(socketId, customMessages[socketId])}>Send Message</button>
+          </li>
+        ))}
+      </ul>
+      <h3>{receivedMessage}</h3>
+    </div>
   );
 }
 
